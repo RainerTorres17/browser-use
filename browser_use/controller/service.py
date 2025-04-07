@@ -243,17 +243,28 @@ class Controller(Generic[Context]):
 			param_model=InputTextAction,
 		)
 		async def input_text(params: InputTextAction, browser: BrowserContext, has_sensitive_data: bool = False):
-			if params.index not in await browser.get_selector_map():
-				raise Exception(f'Element index {params.index} does not exist - retry or use alternative actions')
-
-			element_node = await browser.get_dom_element_by_index(params.index)
-			await browser._input_text_element_node(element_node, params.text)
-			if not has_sensitive_data:
-				msg = f'⌨️  Input {params.text} into index {params.index}'
+			# === Custom Patch: Allow 'selector' as alternative to 'index' for input_text ===
+			# 🧩 Modified to allow selector or index for input_text
+			if hasattr(params, "selector") and params.selector:
+				element_node = await browser.get_locate_element_by_css_selector(params.selector)
+				if not element_node:
+					raise Exception(f'Element with selector "{params.selector}" not found.')
+				await browser._input_text_element_node(element_node, params.text)
+				msg = f'⌨️  Input text using selector "{params.selector}"'
+			elif hasattr(params, "index") and params.index is not None:
+				if params.index not in await browser.get_selector_map():
+					raise Exception(f'Element index {params.index} does not exist - retry or use alternative actions')
+				element_node = await browser.get_dom_element_by_index(params.index)
+				await browser._input_text_element_node(element_node, params.text)
+				msg = (
+					f'⌨️  Input {params.text} into index {params.index}'
+					if not has_sensitive_data else
+					f'⌨️  Input sensitive data into index {params.index}'
+				)
 			else:
-				msg = f'⌨️  Input sensitive data into index {params.index}'
+				raise Exception("Missing 'selector' or 'index' in input_text params.")
 			logger.info(msg)
-			logger.debug(f'Element xpath: {element_node.xpath}')
+			logger.debug(f'Element: {getattr(element_node, "xpath", element_node)}')#change here
 			return ActionResult(extracted_content=msg, include_in_memory=True)
 
 		# Save PDF

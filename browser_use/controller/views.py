@@ -37,7 +37,8 @@ class ClickElementByTextAction(BaseModel):
 
 
 class InputTextAction(BaseModel):
-	index: int
+	index: Optional[int] = None
+	selector: Optional[str] = None
 	text: str
 	xpath: Optional[str] = None
 
